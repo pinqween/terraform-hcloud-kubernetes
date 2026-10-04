@@ -1,7 +1,7 @@
 locals {
   cluster_autoscaler_enabled             = length(local.cluster_autoscaler_nodepools) > 0
-  cluster_autoscaler_hostname_pattern    = "^${var.cluster_name}-(${join("|", distinct([for np in local.cluster_autoscaler_nodepools : np.name]))})-[0-9a-f]+$"
-  cluster_autoscaler_node_label_selector = local.cluster_autoscaler_enabled ? "hcloud/node-group in (${join(",", [for np in local.cluster_autoscaler_nodepools : "${var.cluster_name}-${np.name}"])})" : ""
+  cluster_autoscaler_hostname_pattern    = "^(${join("|", distinct([for np in local.cluster_autoscaler_nodepools : np.node_name]))})-[0-9a-f]+$"
+  cluster_autoscaler_node_label_selector = local.cluster_autoscaler_enabled ? "hcloud/node-group in (${join(",", [for np in local.cluster_autoscaler_nodepools : np.node_name])})" : ""
 
   cluster_autoscaler_release_name       = "cluster-autoscaler"
   cluster_autoscaler_cloud_provider     = "hetzner"
@@ -23,7 +23,7 @@ locals {
             amd64 = local.image_label_selector
           },
           nodeConfigs = {
-            for nodepool in local.cluster_autoscaler_nodepools : "${var.cluster_name}-${nodepool.name}" => {
+            for nodepool in local.cluster_autoscaler_nodepools : nodepool.node_name => {
               cloudInit = data.talos_machine_configuration.cluster_autoscaler[nodepool.name].machine_configuration,
               labels    = nodepool.labels
               taints    = nodepool.taints
@@ -90,7 +90,7 @@ data "helm_template" "cluster_autoscaler" {
       ]
       autoscalingGroups = [
         for np in local.cluster_autoscaler_nodepools : {
-          name         = "${var.cluster_name}-${np.name}"
+          name         = np.node_name
           minSize      = np.min
           maxSize      = np.max
           instanceType = np.server_type
