@@ -12,7 +12,7 @@ locals {
   kube_api_load_balancer_private_ipv4 = cidrhost(hcloud_network_subnet.load_balancer.ip_range, -2)
   kube_api_load_balancer_public_ipv4  = var.kube_api_load_balancer_enabled ? hcloud_load_balancer.kube_api[0].ipv4 : null
   kube_api_load_balancer_public_ipv6  = var.kube_api_load_balancer_enabled ? hcloud_load_balancer.kube_api[0].ipv6 : null
-  kube_api_load_balancer_name         = "${var.cluster_name}-kube-api"
+  kube_api_load_balancer_name         = "${local.cluster_resources_name}-kube-api"
   kube_api_load_balancer_location     = local.control_plane_nodepools[0].location
 
   kube_api_load_balancer_public_network_enabled = coalesce(
@@ -105,7 +105,7 @@ locals {
   ingress_service_load_balancer_public_ipv4  = local.ingress_nginx_service_load_balancer_required ? hcloud_load_balancer.ingress[0].ipv4 : null
   ingress_service_load_balancer_public_ipv6  = local.ingress_nginx_service_load_balancer_required ? hcloud_load_balancer.ingress[0].ipv6 : null
   ingress_service_load_balancer_hostname     = local.ingress_nginx_service_load_balancer_required ? "static.${join(".", reverse(split(".", local.ingress_service_load_balancer_public_ipv4)))}.clients.your-server.de" : ""
-  ingress_service_load_balancer_name         = "${var.cluster_name}-ingress"
+  ingress_service_load_balancer_name         = "${local.cluster_resources_name}-ingress"
   ingress_service_load_balancer_location     = local.hcloud_load_balancer_location
 }
 
@@ -177,7 +177,7 @@ locals {
         ],
         [
           for np in local.cluster_autoscaler_nodepools :
-          "hcloud/node-group=${var.cluster_name}-${np.name}"
+          "hcloud/node-group=${np.node_name}"
           if(lp.local_traffic ? np.location == lp.location : true) &&
           lookup(np.labels, "node.kubernetes.io/exclude-from-external-load-balancers", null) == null
         ]
@@ -192,7 +192,7 @@ locals {
 resource "hcloud_load_balancer" "ingress_pool" {
   for_each = merge([
     for pool_index in range(length(local.ingress_load_balancer_pools)) : {
-      for lb_index in range(local.ingress_load_balancer_pools[pool_index].count) : "${var.cluster_name}-${local.ingress_load_balancer_pools[pool_index].name}-${lb_index + 1}" => {
+      for lb_index in range(local.ingress_load_balancer_pools[pool_index].count) : "${local.cluster_resources_name}-${local.ingress_load_balancer_pools[pool_index].name}-${lb_index + 1}" => {
         location                = local.ingress_load_balancer_pools[pool_index].location,
         load_balancer_type      = local.ingress_load_balancer_pools[pool_index].load_balancer_type,
         load_balancer_algorithm = local.ingress_load_balancer_pools[pool_index].load_balancer_algorithm,
@@ -221,7 +221,7 @@ resource "hcloud_load_balancer" "ingress_pool" {
 resource "hcloud_load_balancer_network" "ingress_pool" {
   for_each = merge([
     for pool_index in range(length(local.ingress_load_balancer_pools)) : {
-      for lb_index in range(local.ingress_load_balancer_pools[pool_index].count) : "${var.cluster_name}-${local.ingress_load_balancer_pools[pool_index].name}-${lb_index + 1}" => {
+      for lb_index in range(local.ingress_load_balancer_pools[pool_index].count) : "${local.cluster_resources_name}-${local.ingress_load_balancer_pools[pool_index].name}-${lb_index + 1}" => {
         public_network_enabled = local.ingress_load_balancer_pools[pool_index].public_network_enabled
         ipv4_private = cidrhost(
           hcloud_network_subnet.load_balancer.ip_range,
@@ -247,9 +247,9 @@ resource "hcloud_load_balancer_target" "ingress_pool" {
       for pool in local.ingress_load_balancer_pools : [
         for lb_index in range(pool.count) : [
           for target_index, target_label_selector in pool.target_label_selector : {
-            key = "${var.cluster_name}-${pool.name}-${lb_index + 1}-${target_index + 1}"
+            key = "${local.cluster_resources_name}-${pool.name}-${lb_index + 1}-${target_index + 1}"
             value = {
-              lb_name        = "${var.cluster_name}-${pool.name}-${lb_index + 1}"
+              lb_name        = "${local.cluster_resources_name}-${pool.name}-${lb_index + 1}"
               label_selector = target_label_selector
             }
           }
@@ -280,9 +280,9 @@ resource "hcloud_load_balancer_service" "ingress_pool" {
       for pool in local.ingress_load_balancer_pools : [
         for lb_index in range(pool.count) : [
           for protocol in ["http", "https"] : {
-            key = "${var.cluster_name}-${pool.name}-${lb_index + 1}-${protocol}"
+            key = "${local.cluster_resources_name}-${pool.name}-${lb_index + 1}-${protocol}"
             value = {
-              lb_name     = "${var.cluster_name}-${pool.name}-${lb_index + 1}"
+              lb_name     = "${local.cluster_resources_name}-${pool.name}-${lb_index + 1}"
               listen_port = protocol == "http" ? 80 : 443
               destination_port = (
                 protocol == "http" ?
