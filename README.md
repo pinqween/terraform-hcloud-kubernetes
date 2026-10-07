@@ -1,5 +1,5 @@
 <!--
-  This is the pinqween fork of hcloud-k8s/terraform-hcloud-kubernetes. It exists
+  This is a fork of hcloud-k8s/terraform-hcloud-kubernetes. It exists
   only to let a root name the nodes and cluster resources by role (e.g.
   `ci-runner`, `platform`) instead of `<cluster_name>-<pool>`: it adds the
   optional `node_name`/`placement_group_name` pool fields and the
